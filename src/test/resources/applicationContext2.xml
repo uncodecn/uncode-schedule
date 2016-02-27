@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+        http://www.springframework.org/schema/task
+        http://www.springframework.org/schema/task/spring-task-3.0.xsd">
+        
+        
+	    <bean id="zkScheduleManager" class="cn.uncode.schedule.ZKScheduleManager"
+			init-method="init">
+			<property name="zkConfig">
+		           <map>
+		              <entry key="zkConnectString" value="127.0.0.1:2181" />
+		              <entry key="rootPath" value="/uncode/schedule" />
+		              <entry key="zkSessionTimeout" value="60000" />
+		              <entry key="userName" value="ScheduleAdmin" />
+		              <entry key="password" value="password" />
+		              <entry key="autoRegisterTask" value="true" />
+		           </map>
+			</property>
+		</bean>	
+
+
+	    <bean id="taskObj" class="cn.uncode.schedule.SimpleTask"/>
+	
+	    <!-- 定义调用对象和调用对象的方法 -->
+        <bean id="jobtask" class="cn.uncode.schedule.quartz.MethodInvokingJobDetailFactoryBean">
+            <!-- 调用的类 -->
+            <property name="targetObject" ref="taskObj" />
+            <!-- 调用类中的方法 -->
+            <property name="targetMethod" value="print" />
+        </bean>
+        <!-- 定义触发时间 -->
+        <bean id="doTime" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+            <property name="jobDetail">
+                <ref bean="jobtask"/>
+            </property>
+            <!-- cron表达式 -->
+            <property name="cronExpression">
+                <value>0/3 * * * * ?</value>
+            </property>
+        </bean>
+        <!-- 总管理类 如果将lazy-init='false'那么容器启动就会执行调度程序  -->
+        <bean id="startQuertz" lazy-init="false" autowire="no" class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+            <property name="triggers">
+                <list>
+                    <ref bean="doTime"/>
+                </list>
+            </property>
+        </bean>
+
+</beans>

@@ -1,6 +1,7 @@
 package cn.uncode.schedule.zk;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
@@ -34,7 +35,7 @@ public class ZKManager{
     private Properties properties;
     private boolean isCheckParentPath = true;
     public enum keys {
-        zkConnectString, rootPath, userName, password, zkSessionTimeout, autoRegisterTask
+        zkConnectString, rootPath, userName, password, zkSessionTimeout, autoRegisterTask, ipBlacklist
     }
 
     public ZKManager(Properties aProperties) throws Exception{
@@ -96,19 +97,17 @@ public class ZKManager{
         log.info("关闭zookeeper连接");
         this.zk.close();
     }
-    public static Properties createProperties(){
-        Properties result = new Properties();
-        result.setProperty(keys.zkConnectString.toString(),"localhost:2181");
-        result.setProperty(keys.rootPath.toString(),"/uncode/schedule");
-        result.setProperty(keys.userName.toString(),"juny");
-        result.setProperty(keys.password.toString(),"password");
-        result.setProperty(keys.zkSessionTimeout.toString(),"60000");
-        result.setProperty(keys.autoRegisterTask.toString(),"true");
-        
-        return result;
-    }
+    
     public String getRootPath(){
         return this.properties.getProperty(keys.rootPath.toString());
+    }
+    public List<String> getIpBlacklist(){
+    	List<String> ips = new ArrayList<String>();
+    	String list = this.properties.getProperty(keys.ipBlacklist.toString());
+    	if(StringUtils.isNotEmpty(list)){
+    		ips = Arrays.asList(list.split(","));
+    	}
+    	return ips;
     }
     public String getConnectStr(){
         return this.properties.getProperty(keys.zkConnectString.toString());

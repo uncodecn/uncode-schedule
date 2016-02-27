@@ -40,7 +40,13 @@ public interface IScheduleDataManager{
 	
 	public boolean isOwner(String name, String uuid)throws Exception;
 	
-	public void addTask(String name)throws Exception;
+	public void addTask(TaskDefine taskDefine)throws Exception;
+	
+	public void delTask(String targetBean, String targetMethod)throws Exception;
+	
+	public List<TaskDefine> selectTask()throws Exception;
+	
+	public boolean checkLocalTask(String currentUuid)throws Exception;
     
     
      

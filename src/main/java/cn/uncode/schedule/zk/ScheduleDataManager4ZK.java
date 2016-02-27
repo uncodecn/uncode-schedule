@@ -12,11 +12,15 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import cn.uncode.schedule.ConsoleManager;
+import cn.uncode.schedule.local.DynamicTaskManager;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -204,6 +208,7 @@ public class ScheduleDataManager4ZK implements IScheduleDataManager {
 					 if(this.getZooKeeper().exists(taskPath, false) == null){
 						 this.getZooKeeper().create(taskPath, null, this.zkManager.getAcl(),CreateMode.PERSISTENT);
 					 }
+					 
 					 List<String> taskServerIds = this.getZooKeeper().getChildren(taskPath, false);
 					 if(null == taskServerIds || taskServerIds.size() == 0){
 						 assignServer2Task(taskServerList, taskPath);
@@ -220,6 +225,7 @@ public class ScheduleDataManager4ZK implements IScheduleDataManager {
 							 assignServer2Task(taskServerList, taskPath);
 						 }
 					 }
+					 
 				 }	
 			 }else{
 				 if(LOG.isDebugEnabled()){
@@ -290,6 +296,7 @@ public class ScheduleDataManager4ZK implements IScheduleDataManager {
 
 	@Override
 	public boolean isOwner(String name, String uuid) throws Exception {
+		boolean isOwner = false;
 		//查看集群中是否注册当前任务，如果没有就自动注册
 		String zkPath = this.pathTask + "/" + name;
 		if(this.zkManager.isAutoRegisterTask()){
@@ -303,21 +310,98 @@ public class ScheduleDataManager4ZK implements IScheduleDataManager {
 		//判断是否分配给当前节点
 		zkPath = zkPath + "/" + uuid;
 		if(this.getZooKeeper().exists(zkPath,false) != null){
-			return true;
+			isOwner = true;
 		}
-		return false;
+		return isOwner;
 	}
 
+	
 	@Override
-	public void addTask(String name) throws Exception {
+	public void addTask(TaskDefine taskDefine) throws Exception {
 		String zkPath = this.pathTask;
 		if(this.getZooKeeper().exists(zkPath,false)== null){
 			this.getZooKeeper().create(zkPath, null, this.zkManager.getAcl(), CreateMode.PERSISTENT);
 		}
-		if(this.getZooKeeper().exists(zkPath + "/" + name,false) == null){
-			this.getZooKeeper().create(zkPath + "/" + name, null, this.zkManager.getAcl(), CreateMode.PERSISTENT);
+		zkPath = zkPath + "/" + taskDefine.getTargetBean() + "#" + taskDefine.getTargetMethod();
+		if(this.getZooKeeper().exists(zkPath, false) == null){
+			this.getZooKeeper().create(zkPath, null, this.zkManager.getAcl(), CreateMode.PERSISTENT);
+		}
+		String json = this.gson.toJson(taskDefine);
+		this.getZooKeeper().setData(zkPath, json.getBytes(), -1);
+	}
+	
+	@Override
+	public void delTask(String targetBean, String targetMethod) throws Exception {
+		String zkPath = this.pathTask;
+		if(this.getZooKeeper().exists(zkPath,false) != null){
+			zkPath = zkPath + "/" + targetBean + "#" + targetMethod;
+			if(this.getZooKeeper().exists(zkPath, false) != null){
+				ZKTools.deleteTree(this.getZooKeeper(), zkPath);
+			}
 		}
 	}
+	
+	@Override
+	public List<TaskDefine> selectTask() throws Exception {
+		String zkPath = this.pathTask;
+		List<TaskDefine> taskDefines = new ArrayList<TaskDefine>();
+		if(this.getZooKeeper().exists(zkPath,false) != null){
+			List<String> childrens = this.getZooKeeper().getChildren(zkPath, false);
+			for(String child:childrens){
+				byte[] data = this.getZooKeeper().getData(zkPath+"/"+child, null, null);
+				TaskDefine taskDefine = null;
+				if (null != data) {
+					 String json = new String(data);
+					 taskDefine = this.gson.fromJson(json, TaskDefine.class);
+				}else{
+					String[] names = child.split("#");
+					if(names != null && StringUtils.isNotEmpty(names[0])){
+						taskDefine = new TaskDefine();
+						taskDefine.setTargetBean(names[0]);
+						taskDefine.setTargetMethod(names[1]);
+					}
+				}
+				List<String> sers = this.getZooKeeper().getChildren(zkPath+"/"+child, false);
+				if(sers != null){
+					taskDefine.setCurrentServer(sers.get(0));
+				}
+				taskDefines.add(taskDefine);
+			}
+		}
+		return taskDefines;
+	}
+
+	@Override
+	public boolean checkLocalTask(String currentUuid) throws Exception {
+		if(this.zkManager.checkZookeeperState()){
+			 String zkPath = this.pathTask;
+			 List<String> children = this.getZooKeeper().getChildren(zkPath, false);
+			 List<String> ownerTask = new ArrayList<String>();
+			 if(null != children && children.size() > 0){
+				 for(int i = 0; i < children.size(); i++){
+					 String taskName = children.get(i);
+					 if (isOwner(taskName, currentUuid)) {
+						 String taskPath = zkPath + "/" + taskName;
+						 byte[] data = this.getZooKeeper().getData(taskPath, null, null);
+						 if (null != data) {
+							 String json = new String(data);
+							 TaskDefine taskDefine = this.gson.fromJson(json, TaskDefine.class);
+							 ownerTask.add(taskName);
+							 DynamicTaskManager.scheduleTask(taskDefine, new Date(getSystemTime()));
+						 }
+					 }                                                 
+				 }
+			 }
+			 DynamicTaskManager.clearLocalTask(ownerTask);
+		}
+		return false;
+	}
+
+	
+
+	
+
+	
 
 
 }

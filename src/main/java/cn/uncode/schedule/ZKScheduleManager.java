@@ -40,7 +40,7 @@ public class ZKScheduleManager extends ThreadPoolTaskScheduler implements Applic
 	 */
 	private static final long serialVersionUID = 1L;
 
-	protected static final transient Logger LOGGER = LoggerFactory.getLogger(ZKScheduleManager.class);
+	private static final transient Logger LOGGER = LoggerFactory.getLogger(ZKScheduleManager.class);
 
 	private Map<String, String> zkConfig;
 	
@@ -68,7 +68,7 @@ public class ZKScheduleManager extends ThreadPoolTaskScheduler implements Applic
 	 */
 	private boolean isScheduleServerRegister = false;
 
-	private ApplicationContext applicationcontext;
+	private static ApplicationContext applicationcontext;
 	
 	private Map<String, Boolean> isOwnerMap = new ConcurrentHashMap<String, Boolean>();
 
@@ -106,7 +106,6 @@ public class ZKScheduleManager extends ThreadPoolTaskScheduler implements Applic
 		this.initLock.lock();
 		try {
 			this.scheduleDataManager = null;
-			ConsoleManager.setScheduleManagerFactory(this);
 			if (this.zkManager != null) {
 				this.zkManager.close();
 			}
@@ -178,6 +177,12 @@ public class ZKScheduleManager extends ThreadPoolTaskScheduler implements Applic
 			}
 			return;
 		}
+		//黑名单
+		for(String ip:zkManager.getIpBlacklist()){
+			if(serverList.contains(ip)){
+				serverList.remove(ip);
+			}
+		}
 		// 设置初始化成功标准，避免在leader转换的时候，新增的线程组初始化失败
 		scheduleDataManager.assignTask(this.currenScheduleServer.getUuid(), serverList);
 	}
@@ -198,6 +203,8 @@ public class ZKScheduleManager extends ThreadPoolTaskScheduler implements Applic
 
 			// 重新分配任务
 			this.assignScheduleTask();
+			// 检查本地任务
+			this.checkLocalTask();
 		} catch (Throwable e) {
 			// 清除内存中所有的已经取得的数据和任务队列,避免心跳线程失败时候导致的数据重复
 			this.clearMemoInfo();
@@ -207,6 +214,11 @@ public class ZKScheduleManager extends ThreadPoolTaskScheduler implements Applic
 				throw new Exception(e.getMessage(), e);
 			}
 		}
+	}
+	
+	public void checkLocalTask() throws Exception {
+		// 检查系统任务执行情况
+		scheduleDataManager.checkLocalTask(this.currenScheduleServer.getUuid());
 	}
 
 	/**
@@ -330,13 +342,17 @@ public class ZKScheduleManager extends ThreadPoolTaskScheduler implements Applic
 	@Override
 	public void setApplicationContext(ApplicationContext applicationcontext)
 			throws BeansException {
-		this.applicationcontext = applicationcontext;
+		ZKScheduleManager.applicationcontext = applicationcontext;
 	}
 	
 	public void setZkManager(ZKManager zkManager) {
 		this.zkManager = zkManager;
 	}
 	
+	public ZKManager getZkManager() {
+		return zkManager;
+	}
+
 	public void setZkConfig(Map<String, String> zkConfig) {
 		this.zkConfig = zkConfig;
 	}
@@ -365,6 +381,23 @@ public class ZKScheduleManager extends ThreadPoolTaskScheduler implements Applic
 	public ScheduledFuture<?> scheduleWithFixedDelay(Runnable task, long delay) {
 		return super.scheduleWithFixedDelay(taskWrapper(task), delay);
 	}
+	
+	public String getScheduleServerUUid(){
+		if(null != currenScheduleServer){
+			return currenScheduleServer.getUuid();
+		}
+		return null;
+	}
+
+	public Map<String, Boolean> getIsOwnerMap() {
+		return isOwnerMap;
+	}
+
+	public static ApplicationContext getApplicationcontext() {
+		return ZKScheduleManager.applicationcontext;
+	}
+	
+	
 
 
 }

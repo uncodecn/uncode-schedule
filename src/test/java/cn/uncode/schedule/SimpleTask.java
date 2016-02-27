@@ -19,6 +19,30 @@ public class SimpleTask {
         System.out.println("=========== end !=========");
     }
     
+    public void print1() {
+        System.out.println("===========start!=========");
+        System.out.println("print1:"+i);i++;
+        System.out.println("=========== end !=========");
+    }
+    
+    public void print2() {
+        System.out.println("===========start!=========");
+        System.out.println("print2:"+i);i++;
+        System.out.println("=========== end !=========");
+    }
+    
+    public void print3() {
+        System.out.println("===========start!=========");
+        System.out.println("print3:"+i);i++;
+        System.out.println("=========== end !=========");
+    }
+    
+    public void print4() {
+        System.out.println("===========start!=========");
+        System.out.println("print4:"+i);i++;
+        System.out.println("=========== end !=========");
+    }
+    
 
 
 }

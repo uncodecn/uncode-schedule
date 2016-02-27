@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+        http://www.springframework.org/schema/task
+        http://www.springframework.org/schema/task/spring-task-3.0.xsd">
+        
+        
+	    <bean id="zkScheduleManager" class="cn.uncode.schedule.ZKScheduleManager"
+			init-method="init">
+			<property name="zkConfig">
+		           <map>
+		              <entry key="zkConnectString" value="localhost:2181" />
+		              <entry key="rootPath" value="/uncode/schedule" />
+		              <entry key="zkSessionTimeout" value="60000" />
+		              <entry key="userName" value="ScheduleAdmin" />
+		              <entry key="password" value="password" />
+		              <entry key="autoRegisterTask" value="true" />
+		           </map>
+			</property>
+		</bean>
+
+	    <bean id="taskObj" class="cn.uncode.schedule.SimpleTask"/>
+<!-- 	
+	    <task:scheduled-tasks scheduler="zkScheduleManager">
+	        <task:scheduled ref="taskObj" method="print"  fixed-rate="5000"/>
+	    </task:scheduled-tasks>
+ -->
+
+</beans>

@@ -1,113 +1,58 @@
 package cn.uncode.schedule;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.Properties;
-
-
-
-
-
-
-
-
-
-
-
+import java.util.ArrayList;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import cn.uncode.schedule.zk.IScheduleDataManager;
-import cn.uncode.schedule.zk.ZKManager;
+import cn.uncode.schedule.zk.TaskDefine;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 
 
-public class ConsoleManager {   
+public class ConsoleManager {
+	
     protected static transient Logger log = LoggerFactory.getLogger(ConsoleManager.class);
-
-    public final static String configFile = System.getProperty("user.dir") + File.separator
-            + "pamirsScheduleConfig.properties";
+    
+    private static Gson GSON = new GsonBuilder().create();
 
     private static ZKScheduleManager scheduleManager;
     
-    public static boolean isInitial() throws Exception{
-        return scheduleManager != null;
-    }
-    public static boolean  initial() throws Exception{
-        if(scheduleManager != null){
-            return true;
-        }
-        File file = new File(configFile);
-        scheduleManager = new ZKScheduleManager();
-        scheduleManager.start = false;
-        
-        if(file.exists() == true){
-            //Console不启动调度能力
-            Properties p = new Properties();
-            FileReader reader = new FileReader(file);
-            p.load(reader);
-            reader.close();
-            scheduleManager.init(p);
-            log.info("加载Schedule配置文件：" +configFile );
-            return true;
-        }else{
-            return false;
-        }
-    }   
     public static ZKScheduleManager getScheduleManager() throws Exception {
-        if(isInitial() == false){
-            initial();
-        }
-        return scheduleManager;
-    }
-    public static IScheduleDataManager getScheduleDataManager() throws Exception{
-        if(isInitial() == false){
-            initial();
-        }
-        return scheduleManager.getScheduleDataManager();
+    	if(null == ConsoleManager.scheduleManager){
+    		ConsoleManager.scheduleManager = (ZKScheduleManager)ZKScheduleManager.getApplicationcontext().getBean(ZKScheduleManager.class);
+    	}
+        return ConsoleManager.scheduleManager;
     }
 
-    public static Properties loadConfig() throws IOException{
-        File file = new File(configFile);
-        Properties properties;
-        if(file.exists() == false){
-            properties = ZKManager.createProperties();
-        }else{
-            properties = new Properties();
-            FileReader reader = new FileReader(file);
-            properties.load(reader);
-            reader.close();
-        }
-        return properties;
-    }
-    public static void saveConfigInfo(Properties p) throws Exception {
+    public static void addScheduleTask(TaskDefine taskDefine) {
         try {
-            FileWriter writer = new FileWriter(configFile);
-            p.store(writer, "");
-            writer.close();
-        } catch (Exception ex) {
-            throw new Exception("不能写入配置信息到文件：" + configFile,ex);
-        }
-            if(scheduleManager == null){
-                initial();
-            }else{
-            	scheduleManager.reInit(p);
-            }
-    }
-    public static void setScheduleManagerFactory(ZKScheduleManager scheduleManager) {
-        ConsoleManager.scheduleManager = scheduleManager;
+			ConsoleManager.scheduleManager.getScheduleDataManager().addTask(taskDefine);
+		} catch (Exception e) {
+			log.error(e.getMessage(), e);
+		}
     }
     
-    public static void addScheduleTask(String taskName) {
+    public static void delScheduleTask(String targetBean, String targetMethod) {
         try {
-			ConsoleManager.scheduleManager.getScheduleDataManager().addTask(taskName);
+			ConsoleManager.scheduleManager.getScheduleDataManager().delTask(targetBean, targetMethod);
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			log.error(e.getMessage(), e);
 		}
+    }
+    
+    public static List<TaskDefine> queryScheduleTask() {
+    	List<TaskDefine> taskDefines = new ArrayList<TaskDefine>();
+        try {
+			List<TaskDefine> tasks = ConsoleManager.scheduleManager.getScheduleDataManager().selectTask();
+			taskDefines.addAll(tasks);
+		} catch (Exception e) {
+			log.error(e.getMessage(), e);
+		}
+        return taskDefines;
     }
     
 }

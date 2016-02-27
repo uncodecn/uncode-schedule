@@ -4,7 +4,7 @@
 
   <groupId>cn.uncode</groupId>
   <artifactId>uncode-schedule</artifactId>
-  <version>0.1.0</version>
+  <version>0.5.0</version>
   <packaging>jar</packaging>
 
   <name>uncode-schedule</name>
@@ -16,7 +16,7 @@
 		<maven.test.skip>true</maven.test.skip>
 		<maven.test.failure.ignore>true</maven.test.failure.ignore>
 		<jdk.version>1.7</jdk.version>
-		<spring.version>3.2.0.RELEASE</spring.version>
+		<spring.version>4.0.0.RELEASE</spring.version>
 		<jackson.version>2.2.2</jackson.version>
 		<log4j.version>1.2.16</log4j.version>
 		<junit.version>4.8.1</junit.version>
@@ -55,6 +55,32 @@
 			<version>${spring.version}</version>
 		</dependency>
 		
+		<!-- =================== -->
+		<!-- web -->
+		<!-- =================== -->
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-web</artifactId>
+			<version>${spring.version}</version>
+		</dependency>
+		<!-- =================================================== -->
+		<!-- servlet -->
+		<!-- =================================================== -->
+		<!-- servlet与jsp一定要provided，因为Tomcat已提供。 -->
+		<!-- 但Tomcat未提供JSTL。 -->
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>servlet-api</artifactId>
+			<version>${servlet.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>javax.servlet.jsp</groupId>
+			<artifactId>jsp-api</artifactId>
+			<version>2.2</version>
+			<scope>provided</scope>
+		</dependency>
+		
     	<!-- ==================== -->
 		<!-- 日志 -->
 		<!-- ==================== -->
@@ -90,7 +116,7 @@
 		<dependency>
 			<groupId>org.apache.zookeeper</groupId>
 			<artifactId>zookeeper</artifactId>
-			<version>3.3.3</version>
+			<version>3.4.6</version>
 		</dependency>
 		
 		<dependency>
@@ -98,6 +124,21 @@
 			<artifactId>gson</artifactId>
 			<version>2.1</version>
 		</dependency>
+		
+		<dependency>
+			<groupId>org.quartz-scheduler</groupId>
+			<artifactId>quartz</artifactId>
+			<version>2.2.1</version>
+		</dependency>
+		
+		<!-- ==================== -->
+        <!-- 测试 -->
+        <!-- ==================== -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${junit.version}</version>
+        </dependency>
 
 	</dependencies>
 
