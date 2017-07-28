@@ -358,7 +358,15 @@ public class ScheduleDataManager4ZK implements IScheduleDataManager {
 					if(names != null && StringUtils.isNotEmpty(names[0])){
 						taskDefine = new TaskDefine();
 						taskDefine.setTargetBean(names[0]);
-						taskDefine.setTargetMethod(names[1]);
+						Integer suffixIndex = -1;
+						String methodAndSuffix = names[1];
+						if ((suffixIndex = methodAndSuffix.indexOf("-")) > -1) {
+							String suffix = methodAndSuffix.substring(suffixIndex + 1);
+							taskDefine.setTargetMethod(methodAndSuffix.substring(0, suffixIndex));
+							taskDefine.setExtKeySuffix(StringUtils.isBlank(suffix) ? null : suffix);
+                    				} else {
+                        				taskDefine.setTargetMethod(methodAndSuffix);
+                    				}
 					}
 				}
 				List<String> sers = this.getZooKeeper().getChildren(zkPath+"/"+child, false);
