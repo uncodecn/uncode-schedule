@@ -1,4 +1,5 @@
-package cn.uncode.schedule.quartz;
+
+package schedule.quartz;
 
 /*
  * Copyright 2002-2012 the original author or authors.
@@ -16,43 +17,33 @@ package cn.uncode.schedule.quartz;
  * limitations under the License.
  */
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
+import cn.uncode.schedule.ConsoleManager;
+import cn.uncode.schedule.core.TaskDefine;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.quartz.Job;
-import org.quartz.JobDataMap;
-import org.quartz.JobDetail;
-import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
-import org.quartz.Scheduler;
+import org.quartz.*;
+import org.quartz.impl.triggers.CronTriggerImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.PropertyAccessorFactory;
-import org.springframework.beans.factory.BeanClassLoaderAware;
-import org.springframework.beans.factory.BeanFactory;
-import org.springframework.beans.factory.BeanFactoryAware;
-import org.springframework.beans.factory.BeanNameAware;
-import org.springframework.beans.factory.FactoryBean;
-import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.*;
 import org.springframework.beans.support.ArgumentConvertingMethodInvoker;
 import org.springframework.scheduling.quartz.JobMethodInvocationFailedException;
 import org.springframework.scheduling.quartz.QuartzJobBean;
-import org.springframework.scheduling.quartz.SchedulerFactoryBean;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.MethodInvoker;
 import org.springframework.util.ReflectionUtils;
+import org.springframework.web.context.ContextLoader;
 
-import cn.uncode.schedule.ConsoleManager;
-import cn.uncode.schedule.util.ScheduleUtil;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 /**
- * {@link org.springframework.beans.factory.FactoryBean} that exposes a
- * {@link org.quartz.JobDetail} object which delegates job execution to a
+ * {@link FactoryBean} that exposes a
+ * {@link JobDetail} object which delegates job execution to a
  * specified (static or non-static) method. Avoids the need for implementing
  * a one-line Quartz Job that just invokes an existing service method on a
  * Spring-managed target bean.
@@ -86,7 +77,7 @@ import cn.uncode.schedule.util.ScheduleUtil;
  */
 public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethodInvoker
 		implements FactoryBean<JobDetail>, BeanNameAware, BeanClassLoaderAware, BeanFactoryAware, InitializingBean {
-	
+
 	private static final transient Logger LOGGER = LoggerFactory.getLogger(MethodInvokingJobDetailFactoryBean.class);
 
 	private static Class<?> jobDetailImplClass;
@@ -132,8 +123,7 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 
 	/**
 	 * Set the name of the job.
-	 * <p>Default is the bean name of this FactoryBean.
-	 * @see org.quartz.JobDetail#setName
+	 * Default is the bean name of this FactoryBean.
 	 */
 	public void setName(String name) {
 		this.name = name;
@@ -142,8 +132,6 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 	/**
 	 * Set the group of the job.
 	 * <p>Default is the default group of the Scheduler.
-	 * @see org.quartz.JobDetail#setGroup
-	 * @see org.quartz.Scheduler#DEFAULT_GROUP
 	 */
 	public void setGroup(String group) {
 		this.group = group;
@@ -152,7 +140,7 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 	/**
 	 * Specify whether or not multiple jobs should be run in a concurrent
 	 * fashion. The behavior when one does not want concurrent jobs to be
-	 * executed is realized through adding the {@link StatefulJob} interface.
+	 * executed is realized through adding the interface.
 	 * More information on stateful versus stateless jobs can be found
 	 * <a href="http://www.quartz-scheduler.org/documentation/quartz-2.1.x/tutorials/tutorial-lesson-03">here</a>.
 	 * <p>The default setting is to run jobs concurrently.
@@ -178,8 +166,6 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 	 * non-global JobListeners registered with the Scheduler.
 	 * <p>A JobListener name always refers to the name returned
 	 * by the JobListener implementation.
-	 * @see SchedulerFactoryBean#setJobListeners
-	 * @see org.quartz.JobListener#getName
 	 */
 	public void setJobListenerNames(String[] names) {
 		this.jobListenerNames = names;
@@ -222,6 +208,13 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 			bw.setPropertyValue("jobClass", jobClass);
 			bw.setPropertyValue("durability", true);
 			((JobDataMap) bw.getPropertyValue("jobDataMap")).put("methodInvoker", this);
+		}
+        else {
+			// Using Quartz 1.x JobDetail class...
+			/*this.jobDetail = new JobDetail(name, this.group, jobClass);
+			this.jobDetail.setVolatility(true);
+			this.jobDetail.setDurability(true);
+			this.jobDetail.getJobDataMap().put("methodInvoker", this);*/
 		}
 
 		// Register job listener names.
@@ -273,6 +266,14 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 		return targetObject;
 	}
 
+	public String getTargetBeanName(){
+		String[] names = ContextLoader.getCurrentWebApplicationContext().getBeanNamesForType(getTargetClass());
+		if(null != names){
+			return names[0];
+		}
+		return null;
+	}
+
 
 	public JobDetail getObject() {
 		return this.jobDetail;
@@ -310,10 +311,31 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 		@Override
 		protected void executeInternal(JobExecutionContext context) throws JobExecutionException {
 			try {
-				String name = ScheduleUtil.getTaskNameFormBean(context.getJobDetail().getKey().getName(), this.methodInvoker.getTargetMethod());
+				TaskDefine taskDefine = new TaskDefine();
+				MethodInvokingJob methodInvokingJob = (cn.uncode.schedule.quartz.MethodInvokingJobDetailFactoryBean.MethodInvokingJob) context.getJobInstance();
+				cn.uncode.schedule.quartz.MethodInvokingJobDetailFactoryBean methodInvokingJobDetailFactoryBean= (cn.uncode.schedule.quartz.MethodInvokingJobDetailFactoryBean)methodInvokingJob.methodInvoker;
+				taskDefine.setTargetBean(methodInvokingJobDetailFactoryBean.getTargetBeanName());
+				taskDefine.setTargetMethod(this.methodInvoker.getTargetMethod());
+				taskDefine.setType(TaskDefine.TYPE_QUARTZ_TASK);
+				if(context.getTrigger() instanceof org.quartz.CronTrigger){
+					CronTriggerImpl cronTriggerImpl = (CronTriggerImpl) context.getTrigger();
+					if(null != cronTriggerImpl.getCronExpression()){
+						taskDefine.setCronExpression(cronTriggerImpl.getCronExpression());
+					}
+					if(null != cronTriggerImpl.getStartTime()){
+						taskDefine.setStartTime(cronTriggerImpl.getStartTime());
+					}
+					if(cronTriggerImpl.getPriority() > 0){
+						taskDefine.setPeriod(cronTriggerImpl.getPriority());
+					}
+				}
+				String name = taskDefine.stringKey();
 				boolean isOwner = false;
+				boolean isRunning = true;
 				try {
+					boolean isExists = true;
 					if(ConsoleManager.getScheduleManager().getZkManager().checkZookeeperState()){
+						isExists = ConsoleManager.isExistsTask(taskDefine);
 						isOwner = ConsoleManager.getScheduleManager().getScheduleDataManager().isOwner(name, ConsoleManager.getScheduleManager().getScheduleServerUUid());
 						ConsoleManager.getScheduleManager().getIsOwnerMap().put(name, isOwner);
 					}else{
@@ -321,12 +343,17 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 						if(null != ConsoleManager.getScheduleManager().getIsOwnerMap()){
 							isOwner = ConsoleManager.getScheduleManager().getIsOwnerMap().get(name);
 						}
+						isRunning = ConsoleManager.getScheduleManager().getScheduleDataManager().isRunning(name);
+					}
+					if(!isExists){
+						ConsoleManager.addScheduleTask(taskDefine);
 					}
 				} catch (Exception e) {
 					LOGGER.error("Check task owner error.", e);
 				}
-	    		if(isOwner){
+	    		if(isOwner && isRunning){
 	    			ReflectionUtils.invokeMethod(setResultMethod, context, this.methodInvoker.invoke());
+	    			ConsoleManager.getScheduleManager().getScheduleDataManager().saveRunningInfo(name, ConsoleManager.getScheduleManager().getScheduleServerUUid());
 	    			LOGGER.info("Cron job has been executed.");
 	    		}
 			}

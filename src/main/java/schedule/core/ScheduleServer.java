@@ -1,9 +1,9 @@
-package cn.uncode.schedule.zk;
+package schedule.core;
+
+import cn.uncode.schedule.util.ScheduleUtil;
 
 import java.sql.Timestamp;
 import java.util.UUID;
-
-import cn.uncode.schedule.util.ScheduleUtil;
 
 
 /**
