@@ -1,25 +1,22 @@
-package cn.uncode.schedule.zk;
+package schedule.zk;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Properties;
-import java.util.concurrent.CountDownLatch;
-
+import cn.uncode.schedule.core.Version;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.zookeeper.CreateMode;
-import org.apache.zookeeper.WatchedEvent;
-import org.apache.zookeeper.Watcher;
+import org.apache.zookeeper.*;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
-import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.ZooDefs.Ids;
-import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.ZooKeeper.States;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Id;
 import org.apache.zookeeper.server.auth.DigestAuthenticationProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
 
 
 /**
@@ -33,7 +30,7 @@ public class ZKManager{
     private ZooKeeper zk;
     private List<ACL> acl = new ArrayList<ACL>();
     private Properties properties;
-    private boolean isCheckParentPath = true;
+
     public enum keys {
         zkConnectString, rootPath, userName, password, zkSessionTimeout, autoRegisterTask, ipBlacklist
     }
@@ -47,7 +44,7 @@ public class ZKManager{
      * 重连zookeeper
      * @throws Exception
      */
-    public synchronized void  reConnection() throws Exception{
+    private synchronized void  reConnection() throws Exception{
         if (this.zk != null) {
             this.zk.close();
             this.zk = null;
@@ -98,9 +95,10 @@ public class ZKManager{
         this.zk.close();
     }
     
-    public String getRootPath(){
+    String getRootPath(){
         return this.properties.getProperty(keys.rootPath.toString());
     }
+
     public List<String> getIpBlacklist(){
     	List<String> ips = new ArrayList<String>();
     	String list = this.properties.getProperty(keys.ipBlacklist.toString());
@@ -112,67 +110,63 @@ public class ZKManager{
     public String getConnectStr(){
         return this.properties.getProperty(keys.zkConnectString.toString());
     }
-    public boolean isAutoRegisterTask(){
+
+    boolean isAutoRegisterTask(){
     	String autoRegisterTask = this.properties.getProperty(keys.autoRegisterTask.toString());
     	if(StringUtils.isNotEmpty(autoRegisterTask)){
     		return Boolean.valueOf(autoRegisterTask);
     	}
         return true;
     }
+
     public boolean checkZookeeperState() throws Exception{
         return zk != null && zk.getState() == States.CONNECTED;
     }
+
     public void initial() throws Exception {
         //当zk状态正常后才能调用
+        checkParent(zk,this.getRootPath());
         if(zk.exists(this.getRootPath(), false) == null){
             ZKTools.createPath(zk, this.getRootPath(), CreateMode.PERSISTENT, acl);
-            if(isCheckParentPath == true){
-              checkParent(zk,this.getRootPath());
-            }
             //设置版本信息
             zk.setData(this.getRootPath(),Version.getVersion().getBytes(),-1);
         }else{
             //先校验父亲节点，本身是否已经是schedule的目录
-            if(isCheckParentPath == true){
-               checkParent(zk,this.getRootPath());
-            }
             byte[] value = zk.getData(this.getRootPath(), false, null);
             if(value == null){
                 zk.setData(this.getRootPath(),Version.getVersion().getBytes(),-1);
             }else{
                 String dataVersion = new String(value);
-                if(Version.isCompatible(dataVersion)==false){
+                if(!Version.isCompatible(dataVersion)){
                     throw new Exception("TBSchedule程序版本 "+ Version.getVersion() +" 不兼容Zookeeper中的数据版本 " + dataVersion );
                 }
                 log.info("当前的程序版本:" + Version.getVersion() + " 数据版本: " + dataVersion);
             }
         }
     }
-    public static void checkParent(ZooKeeper zk, String path) throws Exception {
+    private static void checkParent(ZooKeeper zk, String path) throws Exception {
         String[] list = path.split("/");
         String zkPath = "";
         for (int i =0;i< list.length -1;i++){
             String str = list[i];
-            if (str.equals("") == false) {
+            if (StringUtils.isNotEmpty(str)) {
                 zkPath = zkPath + "/" + str;
                 if (zk.exists(zkPath, false) != null) {
                     byte[] value = zk.getData(zkPath, false, null);
-                    if(value != null){
-                        String tmpVersion = new String(value);
-                       if(tmpVersion.indexOf("uncode-schedule-") >=0){
+                    if(value != null && new String(value).contains("uncode-schedule-")){
                         throw new Exception("\"" + zkPath +"\"  is already a schedule instance's root directory, its any subdirectory cannot as the root directory of others");
                     }
                 }
             }
-            }
         }
     }   
     
-    public List<ACL> getAcl() {
+    List<ACL> getAcl() {
         return acl;
     }
-    public ZooKeeper getZooKeeper() throws Exception {
-        if(this.checkZookeeperState()==false){
+
+    ZooKeeper getZooKeeper() throws Exception {
+        if(!this.checkZookeeperState()){
             reConnection();
         }
         return this.zk;
